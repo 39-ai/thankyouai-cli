@@ -193,6 +193,92 @@ class TestGenerateImage:
 
 
 # ---------------------------------------------------------------------------
+# generate video
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateVideo:
+    @resp_lib.activate
+    def test_text_to_video_no_wait(self, runner, env):
+        resp_lib.add(resp_lib.POST, f"{BASE}/generate", json={"id": "gen_vid", "status": "queued"})
+        result = runner.invoke(main, ["generate", "video", "A sunset", "--no-wait"])
+        assert result.exit_code == 0
+        assert "gen_vid" in result.output
+        body = json.loads(resp_lib.calls[0].request.body)
+        assert body["input"]["prompt"] == "A sunset"
+        assert body["model"] == "wan/v2.6/text-to-video"
+
+    @resp_lib.activate
+    def test_text_to_video_wait_prints_url(self, runner, env):
+        resp_lib.add(resp_lib.POST, f"{BASE}/generate", json={"id": "gen_v2", "status": "queued"})
+        resp_lib.add(
+            resp_lib.GET,
+            f"{BASE}/generations/gen_v2",
+            json={"id": "gen_v2", "status": "succeeded", "output": [{"url": "https://cdn.example.com/video.mp4"}], "progress": 1.0},
+        )
+        result = runner.invoke(main, ["generate", "video", "Ocean waves"])
+        assert result.exit_code == 0
+        assert "https://cdn.example.com/video.mp4" in result.output
+
+    @resp_lib.activate
+    def test_image_to_video(self, runner, env):
+        resp_lib.add(resp_lib.POST, f"{BASE}/generate", json={"id": "gen_i2v", "status": "queued"})
+        result = runner.invoke(
+            main,
+            ["generate", "video", "Animate this", "--image", "https://example.com/img.jpg",
+             "--model", "wan/v2.6/image-to-video", "--no-wait"],
+        )
+        assert result.exit_code == 0
+        body = json.loads(resp_lib.calls[0].request.body)
+        assets = body["input"]["reference_assets"]
+        assert assets[0]["role"] == "first_frame"
+        assert assets[0]["url"] == "https://example.com/img.jpg"
+
+    @resp_lib.activate
+    def test_first_last_frame(self, runner, env):
+        resp_lib.add(resp_lib.POST, f"{BASE}/generate", json={"id": "gen_fl", "status": "queued"})
+        result = runner.invoke(
+            main,
+            ["generate", "video", "--image", "https://example.com/start.jpg",
+             "--end-image", "https://example.com/end.jpg",
+             "--model", "kling/v3.0/pro/image-to-video", "--no-wait"],
+        )
+        assert result.exit_code == 0
+        body = json.loads(resp_lib.calls[0].request.body)
+        assets = body["input"]["reference_assets"]
+        roles = {a["role"] for a in assets}
+        assert "first_frame" in roles
+        assert "last_frame" in roles
+
+    @resp_lib.activate
+    def test_with_aspect_ratio_and_duration(self, runner, env):
+        resp_lib.add(resp_lib.POST, f"{BASE}/generate", json={"id": "gen_vx", "status": "queued"})
+        result = runner.invoke(
+            main,
+            ["generate", "video", "Landscape", "--aspect-ratio", "16:9", "--duration", "10", "--no-wait"],
+        )
+        assert result.exit_code == 0
+        body = json.loads(resp_lib.calls[0].request.body)
+        assert body["input"]["aspect_ratio"] == "16:9"
+        assert body["input"]["duration"] == 10
+
+    def test_no_prompt_no_image_errors(self, runner, env):
+        result = runner.invoke(main, ["generate", "video"])
+        assert result.exit_code != 0
+
+    @resp_lib.activate
+    def test_failed_video_exits_nonzero(self, runner, env):
+        resp_lib.add(resp_lib.POST, f"{BASE}/generate", json={"id": "gen_vf", "status": "queued"})
+        resp_lib.add(
+            resp_lib.GET,
+            f"{BASE}/generations/gen_vf",
+            json={"id": "gen_vf", "status": "failed", "error": {"message": "provider error"}, "progress": 0.0},
+        )
+        result = runner.invoke(main, ["generate", "video", "A cat"])
+        assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
 # generate audio
 # ---------------------------------------------------------------------------
 

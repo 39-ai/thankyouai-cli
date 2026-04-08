@@ -292,6 +292,123 @@ def generate_audio(
             sys.exit(1)
 
 
+@generate.command("video")
+@click.argument("prompt", default="", required=False)
+@click.option(
+    "--model",
+    default="wan/v2.6/text-to-video",
+    show_default=True,
+    help="Model ID (text-to-video, image-to-video, etc.)",
+)
+@click.option("--image", default=None, metavar="URL", help="Start image URL (image-to-video)")
+@click.option("--end-image", default=None, metavar="URL", help="End image URL (first-last-frame)")
+@click.option("--duration", type=int, default=None, help="Duration in seconds (5 or 10)")
+@click.option(
+    "--aspect-ratio",
+    default=None,
+    type=click.Choice(["16:9", "9:16", "1:1", "4:3", "3:4"]),
+    help="Video aspect ratio",
+)
+@click.option("--negative-prompt", default=None, help="What to avoid in the video")
+@click.option("--seed", type=int, default=None)
+@click.option(
+    "--wait/--no-wait",
+    default=True,
+    show_default=True,
+    help="Poll until complete and print output URL",
+)
+@click.option("--timeout", type=float, default=600.0, show_default=True, help="Poll timeout (s)")
+@click.pass_context
+def generate_video(
+    ctx,
+    prompt: str,
+    model: str,
+    image: Optional[str],
+    end_image: Optional[str],
+    duration: Optional[int],
+    aspect_ratio: Optional[str],
+    negative_prompt: Optional[str],
+    seed: Optional[int],
+    wait: bool,
+    timeout: float,
+):
+    """Generate a video from PROMPT (and optional reference images).
+
+    \b
+    Modes (determined by --model and --image flags):
+      text-to-video      thankyouai generate video "A sunset over ocean"
+      image-to-video     thankyouai generate video "Animate it" --image URL
+      first-last-frame   thankyouai generate video "" --image START_URL --end-image END_URL
+    """
+    if not prompt and not image:
+        raise click.UsageError("Provide PROMPT or --image (or both).")
+
+    # Determine mode from flags
+    if image and end_image:
+        mode = "first-last-frame-to-video"
+    elif image:
+        mode = "image-to-video"
+    else:
+        mode = "text-to-video"
+
+    params: dict = {}
+    if prompt:
+        params["prompt"] = prompt
+    if negative_prompt:
+        params["negative_prompt"] = negative_prompt
+    if aspect_ratio:
+        params["aspect_ratio"] = aspect_ratio
+    if duration is not None:
+        params["duration"] = duration
+    if seed is not None:
+        params["seed"] = seed
+
+    # Build reference_assets for image inputs
+    if image and end_image:
+        params["reference_assets"] = [
+            {"role": "first_frame", "url": image},
+            {"role": "last_frame", "url": end_image},
+        ]
+    elif image:
+        params["reference_assets"] = [{"role": "first_frame", "url": image}]
+
+    jo = ctx.obj["json_output"]
+    try:
+        gen = api.submit_generation(model, params, ctx.obj["api_key"], ctx.obj["workspace_id"])
+    except Exception as e:
+        error_exit(str(e))
+
+    if not wait:
+        emit(gen, json_output=jo, message=f"Queued: {gen.get('id')} [{mode}]")
+        return
+
+    gen_id = gen["id"]
+    click.echo(f"Queued {gen_id} [{mode}] — polling…", err=True)
+    try:
+        result = api.poll_generation(
+            gen_id,
+            interval=8.0,
+            timeout=timeout,
+            api_key=ctx.obj["api_key"],
+            workspace_id=ctx.obj["workspace_id"],
+            on_progress=progress_bar if not jo else None,
+        )
+    except Exception as e:
+        error_exit(str(e))
+
+    if jo:
+        emit(result, json_output=True)
+    else:
+        status = result.get("status")
+        if status == "succeeded":
+            for out in result.get("output", []):
+                click.echo(out.get("url", out))
+        else:
+            err = result.get("error") or {}
+            click.echo(f"Failed: {err.get('message', status)}", err=True)
+            sys.exit(1)
+
+
 # ---------------------------------------------------------------------------
 # status
 # ---------------------------------------------------------------------------

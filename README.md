@@ -25,6 +25,7 @@ Or pass flags directly: `--api-key` / `--workspace-id`.
 # List models
 thankyouai models
 thankyouai models --category image-generation
+thankyouai models --category "Text to Video"
 
 # Generate an image (waits for result, prints URL)
 thankyouai generate image "A serene mountain lake at golden hour"
@@ -39,6 +40,26 @@ thankyouai generate image "Futuristic cityscape" \
 thankyouai upload ./photo.jpg          # prints CDN URL
 thankyouai generate image "Make it painterly" \
   --reference https://cdn.example.com/photo.jpg
+
+# Generate a video — text-to-video (default: Wan 2.6)
+thankyouai generate video "A sunset over the ocean, cinematic"
+
+# Image-to-video — animate an image
+thankyouai generate video "Gentle waves lapping the shore" \
+  --model wan/v2.6/image-to-video \
+  --image https://cdn.example.com/beach.jpg
+
+# First-last frame interpolation
+thankyouai generate video \
+  --model kling/v3.0/pro/image-to-video \
+  --image https://cdn.example.com/start.jpg \
+  --end-image https://cdn.example.com/end.jpg
+
+# Video options
+thankyouai generate video "City at night" \
+  --model kling/v3.0/standard/text-to-video \
+  --aspect-ratio 16:9 \
+  --duration 10
 
 # Text-to-speech
 thankyouai voices                      # list available voices
@@ -79,15 +100,16 @@ thankyouai --json status gen_abc123
 
 | Command | Description |
 |---------|-------------|
-| `models` | List available models |
+| `models [--category]` | List available models |
 | `model-detail MODEL_ID` | Show field schema for a model |
 | `voices` | List TTS voices |
 | `generate image PROMPT` | Generate an image |
+| `generate video [PROMPT]` | Generate video (text-to-video, image-to-video, first-last-frame) |
 | `generate audio TEXT` | Generate speech |
-| `status GEN_ID` | Get generation status |
+| `status GEN_ID [--poll]` | Get or poll generation status |
 | `generations` | List past generations |
 | `upload FILE` | Upload a reference file, print URL |
-| `usage` | Show usage/billing summary |
+| `usage [--days N]` | Show usage/billing summary |
 
 ## Environment Variables
 
