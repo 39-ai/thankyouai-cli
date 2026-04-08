@@ -134,7 +134,7 @@ def generate():
 @click.option("--aspect-ratio", default=None, help="e.g. 16:9, 1:1, 9:16")
 @click.option("--size", default=None, help="e.g. 1024x1024 (used by /pro and /v2)")
 @click.option("--seed", type=int, default=None, help="Reproducibility seed")
-@click.option("--num-images", type=int, default=1, show_default=True)
+@click.option("--num-images", type=int, default=None, help="Number of images (model-dependent)")
 @click.option("--reference", default=None, metavar="URL", help="Reference image URL")
 @click.option(
     "--wait/--no-wait",
@@ -157,7 +157,9 @@ def generate_image(
     timeout: float,
 ):
     """Generate an image from PROMPT."""
-    params: dict = {"prompt": prompt, "num_images": num_images}
+    params: dict = {"prompt": prompt}
+    if num_images is not None:
+        params["num_images"] = num_images
     if aspect_ratio:
         params["aspect_ratio"] = aspect_ratio
     if size:
