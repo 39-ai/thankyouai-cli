@@ -1,0 +1,15 @@
+README.md
+setup.py
+tests/test_cli.py
+thankyouai/__init__.py
+thankyouai/__main__.py
+thankyouai/cli.py
+thankyouai/client.py
+thankyouai/utils.py
+thankyouai.egg-info/PKG-INFO
+thankyouai.egg-info/SOURCES.txt
+thankyouai.egg-info/dependency_links.txt
+thankyouai.egg-info/entry_points.txt
+thankyouai.egg-info/not-zip-safe
+thankyouai.egg-info/requires.txt
+thankyouai.egg-info/top_level.txt
